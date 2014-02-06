@@ -3,7 +3,10 @@
 /checkouts
 pom.xml
 pom.xml.asc
+feed.log
+output.log
 *.jar
 *.class
 /.lein-*
 /.nrepl-port
+/.idea
