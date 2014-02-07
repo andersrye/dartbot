@@ -25,9 +25,12 @@
   (let [msg (clojure.string/split (clojure.string/lower-case string) #";")
         command (keyword (first msg))]
     (case command
-      :start (let [[ts gid bid plrs] (rest msg)] {:command command, :payload {:timestamp (parse-int ts), :gid (keyword gid), :bid (keyword bid), :players (map keyword (clojure.string/split plrs #","))}})
-      :next (let [[ts gid plr] (rest msg)] {:command command, :payload {:timestamp (parse-int ts), :gid (keyword gid), :player (keyword plr)}})
-      :throw (let [[ts bid scr mlt] (rest msg)] {:command command, :payload {:timestamp (parse-int ts), :bid (keyword bid), :score (parse-int scr), :multiplier (parse-int mlt)}})
+      :start (let [[ts gid bid plrs] (rest msg)]
+               {:command command, :gid (keyword gid), :payload {:timestamp (parse-int ts), :bid  (keyword bid), :players (map keyword (clojure.string/split plrs #","))}})
+      :next (let [[ts gid plr] (rest msg)]
+              {:command command, :gid (keyword gid), :payload {:timestamp (parse-int ts), :player (keyword plr)}})
+      :throw (let [[ts bid scr mlt] (rest msg)]
+               {:command command, :bid (keyword bid), :payload {:timestamp (parse-int ts), :score (parse-int scr), :multiplier (parse-int mlt)}})
       nil)
     ))
 
@@ -43,24 +46,136 @@
     2 (print "DOUBLE" (:points payload))
     3 (print "TRIPLE!" (:points payload))
     )
-  (println " ( =" (* (:points data) (:multiplier data)) ")")
+  (println " ( =" (* (:points payload) (:multiplier payload)) ")")
   )
 
 (defn total-points [throws]
+  (apply + (for [t throws] (* (:score t) (:multiplier t))))
   )
 
-(defn make-game [])
+
+
+(defn add-throw [payload game]
+  (if (< (count (:currentthrows game)) 3)
+    (assoc game :currentthrows (conj (:currentthrows game) payload))
+    game
+    )
+  )
+
+(defn get-next-player [game]
+  (let [curr (:currentplayer game)
+        plrs (:playerorder game)
+        idx (.indexOf plrs curr)
+        get-thws #(get-in game [:players % :throws])
+        thws (map get-thws plrs)]
+    (if (= curr (last plrs))                                            ;last player in player order?
+      (if (apply = thws)                                                ;all players with have same amount of throws?
+        (first plrs)                                                    ;first player
+        (apply first (filter #(< (second %) (get-thws curr)) (map list plrs thws))) ;first player with fewer throws
+        )
+      (if (< (get-thws (get plrs (inc idx))) (get-thws curr))                                                       ;next player has fewer throws?
+        (get plrs (inc idx))                                                 ;next player in order is next
+        (if true                                                            ;next player with fewer throws is next
+        ()  ;TODO fix this
+        ())
+        )
+      )
+
+    ))
+
+(defn print-game [gid game]
+  (println "GAME  " (name gid) "  -----------------------------")
+  (println "TIMESTAMP:\t" (:timestamp game))
+  (println "CURRENT PLAYER:\t" (name (:currentplayer game)))
+  (print "CURRENT THROWS:\t ")
+  (doseq [t (:currentthrows game)] (print (str (case (:multiplier t) 2 "D" 3 "T" "") (:score t) " ")))
+  (println "\nPLAYER ORDER:\t" (vec (map name (:playerorder game))))
+  (println "BOARDS:\t\t" (:boards game))
+  (println "PLAYERS:")
+  (doseq [[k p] (:players game)]
+    (println "\t" (name k))
+    (println "\t\t" "POSITION:\t" (:position p))
+    (println "\t\t" "SCORE:\t\t" (:score p))
+    (println "\t\t" "THROWS:\t" (:throws p))
+    (print "\t\t" "HISTORY:\t ")
+    (doseq [thws (:history p)] (print "(") (doseq [t thws] (print (str (case (:multiplier t) 2 "D" 3 "T" "") (:score t) " "))) (print ") "))
+    (print "\n"))
+  (println "\n")
+  )
+
+(defn print-world [world]
+  (println "CURRENT GAMES: =================================\n")
+  (doseq [[gid game] world]
+    (print-game gid game)
+    )
+  (println "END GAMES ===============================\n\n")
+  world)
+
+(defn make-game [payload gid]
+  {gid {:timestamp (:timestamp payload)
+                     :currentplayer (first (:players payload))
+                     :currentthrows []
+                     :playerorder (:players payload)
+                     :boards #{(:bid payload)}
+                     :players (into {} (for [p (:players payload)]
+                                         [p {:position nil
+                                             :score 301
+                                             :throws 0
+                                             :history []}]))
+
+                     }})
+
+(defn update-game [world gid fn payload]
+  (assoc world gid (fn payload (gid world)))
+  )
+
+(defn set-next-player [payload game]
+  (if (nil? (:player payload))
+    (assoc game :currentplayer nil) ;TODO (get-next-player game)
+    (assoc game :currentplayer (:player payload))
+    ))
+
+(defn update-field [game field fn data]
+  (assoc-in game field (fn (get-in game field) data))
+  ;[:players :ary :score] - 10
+  )
+
+;TODO: unfuck
+(defn update-points [payload game]
+  (set-next-player payload ((comp
+    #(assoc % :currentthrows [])
+    #(update-field % [:players (:currentplayer %) :score] - (total-points (:currentthrows %)))
+    #(update-field % [:players (:currentplayer %) :throws] + 3)
+    #(update-field % [:players (:currentplayer %) :history] conj (:currentthrows %))
+    ) game))
+  )
+
+(defn find-game [board-id world]
+  (loop [w world]
+    (if (empty? w)
+      nil
+      (if (contains? (get (val (first w)) :boards) board-id)
+      (key (first w))
+      (recur (rest w)))
+      )
+    )
+  )
+
+(defn update-world [world {:keys [command bid gid payload]}]
+  (print-world (case command
+    :start (into world (make-game payload gid))
+    :next (update-game world bid update-points payload)
+    :throw (update-game world (find-game bid world) add-throw payload)
+    (do (println "Unknown command, ignoring.") world)))
+  )
 
 (defn -main []
-  (println "Game started")
-  (loop [line (read-line)]
-    (let [data (parse-data line)]
-    (if (= "stop" data)
-      "stopped"
-      (do
-        (print-throw data)
-        (recur (read-line))
-        )))))
+  (println "Dartbot started, waiting for messages.")
+  (loop [world {} line (read-line)]
+    ;(println (clojure.string/replace (str world) #":" "\n") "\n\n")
+    (let [message (parse-message line)]
+      (recur (update-world world message) (read-line))
+      )))
 
 ;
 ;
