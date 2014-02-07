@@ -4,9 +4,10 @@
 pom.xml
 pom.xml.asc
 feed.log
-output.log
+output.log*
+game.log
 *.jar
 *.class
 /.lein-*
 /.nrepl-port
-/.idea
+.idea/
