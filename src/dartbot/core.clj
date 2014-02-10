@@ -55,7 +55,7 @@
 
 
 
-(defn add-throw [payload game]
+(defn add-throw [game payload]
   (if (< (count (:currentthrows game)) 3)
     (assoc game :currentthrows (conj (:currentthrows game) payload))
     game
@@ -126,10 +126,10 @@
                      }})
 
 (defn update-game [world gid fn payload]
-  (assoc world gid (fn payload (gid world)))
+  (assoc world gid (fn (gid world) payload))
   )
 
-(defn set-next-player [payload game]
+(defn set-next-player [game payload]
   (if (nil? (:player payload))
     (assoc game :currentplayer nil) ;TODO (get-next-player game)
     (assoc game :currentplayer (:player payload))
@@ -140,14 +140,37 @@
   ;[:players :ary :score] - 10
   )
 
+(defn clear-current-throws [game]
+  (assoc game :currentthrows []))
+
+(defn update-score [game]
+  (update-field game [:players (:currentplayer game) :score] - (total-points (:currentthrows game)))
+  )
+
+(defn update-throws [game]
+  (update-field game [:players (:currentplayer game) :throws] + 3)
+  )
+
+(defn update-history [game]
+  (update-field game [:players (:currentplayer game) :history] conj (:currentthrows game))
+  )
+
 ;TODO: unfuck
-(defn update-points [payload game]
-  (set-next-player payload ((comp
-    #(assoc % :currentthrows [])
-    #(update-field % [:players (:currentplayer %) :score] - (total-points (:currentthrows %)))
-    #(update-field % [:players (:currentplayer %) :throws] + 3)
-    #(update-field % [:players (:currentplayer %) :history] conj (:currentthrows %))
-    ) game))
+(defn finish-round [game payload]
+  (-> game
+    update-score
+    update-throws
+    update-history
+    clear-current-throws
+    (set-next-player payload)
+    )
+
+;  ((comp
+;    #(assoc % :currentthrows [])
+;    #(update-field % [:players (:currentplayer %) :score] - (total-points (:currentthrows %)))
+;    #(update-field % [:players (:currentplayer %) :throws] + 3)
+;    #(update-field % [:players (:currentplayer %) :history] conj (:currentthrows %))
+;    ) game)
   )
 
 (defn find-game [board-id world]
@@ -162,19 +185,18 @@
   )
 
 (defn update-world [world {:keys [command bid gid payload]}]
-  (print-world (case command
+  (case command
     :start (into world (make-game payload gid))
-    :next (update-game world bid update-points payload)
+    :next (update-game world gid finish-round payload)
     :throw (update-game world (find-game bid world) add-throw payload)
-    (do (println "Unknown command, ignoring.") world)))
+    (do (println "Unknown command, ignoring.") world))
   )
 
 (defn -main []
   (println "Dartbot started, waiting for messages.")
   (loop [world {} line (read-line)]
-    ;(println (clojure.string/replace (str world) #":" "\n") "\n\n")
     (let [message (parse-message line)]
-      (recur (update-world world message) (read-line))
+      (recur (print-world (update-world world message)) (read-line))
       )))
 
 ;
