@@ -62,8 +62,8 @@
   (parse-int "987654321987654321") => 987654321987654321)
 
 (fact
-  (parse-message "START;1391449631516;GID1;BID1;BNO,YNS,HEN") => {:command :start, :gid :gid1, :payload {:timestamp 1391449631516, :bid :bid1, :players [:bno :yns :hen]}}
-  (parse-message "START;1391449732816;GID2;BID1;BNO,YNS,HEN,ary") => {:command :start, :gid :gid2, :payload {:timestamp 1391449732816, :bid :bid1, :players [:bno :yns :hen :ary]}}
+  (parse-message "START;1391449631516;GID1;BID1;301;BNO,YNS,HEN") => {:command :start, :gid :gid1, :payload {:timestamp 1391449631516, :bid :bid1, :players [:bno :yns :hen]}}
+  (parse-message "START;1391449732816;GID2;BID1;301;BNO,YNS,HEN,ary") => {:command :start, :gid :gid2, :payload {:timestamp 1391449732816, :bid :bid1, :players [:bno :yns :hen :ary]}}
   (parse-message "NEXT;1391449631516;GID1;HEN") => {:command :next, :gid :gid1, :payload {:timestamp 1391449631516, :player :hen}}
   (parse-message "NEXT;1391449631516;GID1") => {:command :next, :gid :gid1, :payload {:timestamp 1391449631516, :player nil}}
   (parse-message "THROW;1391449631516;BID1;20;3") => {:command :throw, :bid :bid1, :payload {:timestamp 1391449631516, :score 20, :multiplier 3}}
@@ -73,19 +73,29 @@
 (fact "make game"
   (make-game new-payload :gid2) => (mock-world))
 
-;(fact "get next player"
-;  (get-next-player (mock-game {:players {:bno {:throws 6} :yns {:throws 3} :hen {:throws 6} :ary {:throws 6}}})) => :yns
-;  (get-next-player (mock-game {:currentplayer :yns :players {:bno {:throws 6} :yns {:throws 3} :hen {:throws 6} :ary {:throws 6}}})) => :bno
-;  (get-next-player (mock-game {:currentplayer :hen :players {:bno {:throws 6} :yns {:throws 3} :hen {:throws 6} :ary {:throws 6}}})) => :ary
-;  (get-next-player (mock-game {:currentplayer :ary :players {:bno {:throws 6} :yns {:throws 3} :hen {:throws 6} :ary {:throws 6}}})) => :yns
-;  )
-
-(fact "set next player"
-  (set-next-player (mock-game) {:timestamp 1391449631516, :gid :gid1, :player :hen}) => (mock-game {:currentplayer :hen})
+(fact "get next player"
+  (get-next-player (mock-game {:players {:bno {:throws 6} :yns {:throws 3} :hen {:throws 6} :ary {:throws 6}}})) => :yns
+  (get-next-player (mock-game {:currentplayer :yns :players {:bno {:throws 6} :yns {:throws 6} :hen {:throws 6} :ary {:throws 6}}})) => :bno
+  (get-next-player (mock-game {:currentplayer :hen :players {:bno {:throws 6} :yns {:throws 3} :hen {:throws 6} :ary {:throws 6}}})) => :ary
+  (get-next-player (mock-game {:currentplayer :ary :players {:bno {:throws 6} :yns {:throws 3} :hen {:throws 6} :ary {:throws 6}}})) => :yns
   )
 
-(fact "")
+(fact "set next player"
+  (set-next-player (mock-game) {:timestamp 1391449631516, :player :hen}) => (mock-game {:currentplayer :hen})
+  (set-next-player (mock-game) {:timestamp 1391449631516, :player nil}) => (mock-game {:currentplayer :yns})
+  )
 
+;(defn set-field [a b]
+;  b)
+
+(fact "update field"
+  (update-field (mock-game) [:players :bno :score] - 100) => (mock-game {:players {:bno {:score 201}}}))
+
+(fact "clear current throws"
+  (clear-current-throws (mock-game {:currentthrows [1 2 3]})) => (mock-game))
+
+(fact "update score"
+  (update-score (mock-game {:currentthrows [throw-payload]})) => (mock-game {:currentthrows [throw-payload] :players {:bno {:score 241}}}))
 (fact "find game by board-id"
   (find-game :bid1 (mock-world)) => :gid2
   )
