@@ -14,6 +14,8 @@
               {:command command, :gid (keyword gid), :payload {:timestamp (parse-int ts), :player (keyword plr)}})
       :throw (let [[ts bid scr mlt] (rest msg)]
                {:command command, :bid (keyword bid), :payload {:timestamp (parse-int ts), :score (parse-int scr), :multiplier (parse-int mlt)}})
+      :delete (let [[gid] (rest msg)]
+                {:command command, :gid gid})
       nil)
     ))
 
@@ -25,37 +27,53 @@
   (if (< (count (:currentthrows game)) 3)
     (assoc game :currentthrows (conj (:currentthrows game) payload))
     game
-    )
+    ))
+
+(defn print-to-file [str]
+  (spit "print-output.txt" str :append true)
   )
 
-(defn print-game [gid game]
-  (println "GAME  " (name gid) "  -----------------------------")
-  (println "TIMESTAMP:\t" (:timestamp game))
-  (println "CURRENT PLAYER:\t" (:currentplayer game))
-  (print "CURRENT THROWS:\t ")
-  (doseq [t (:currentthrows game)] (print (str (case (:multiplier t) 2 "D" 3 "T" "") (:score t) " ")))
-  (print "=" (total-points (:currentthrows game)))
-  (println "\nPLAYER ORDER:\t" (vec (map name (:playerorder game))))
-  (println "BOARDS:\t\t" (:boards game))
-  (println "PLAYERS:")
-  (doseq [[k p] (:players game)]
-    (println "\t" (name k))
-    (println "\t\t" "POSITION:\t" (:position p))
-    (println "\t\t" "SCORE:\t\t" (:score p))
-    (println "\t\t" "THROWS:\t" (:throws p))
-    (print "\t\t" "HISTORY:\t ")
-    (doseq [thws (:history p)] (print "(") (doseq [t thws] (print (str (case (:multiplier t) 2 "D" 3 "T" "") (:score t) " "))) (print ") "))
-    (print "\n"))
-  (println "\n")
-  )
-
-(defn print-world [world]
-  (println "CURRENT GAMES: =================================\n")
-  (doseq [[gid game] world]
-    (print-game gid game)
+(defn print-world-to-file [world]
+  (print-to-file
+    (str
+      "CURRENT GAMES: ==========================\n\n"
+      (apply str
+        (for [[gid game] world]
+          (str
+            "GAME  " (name gid) "  ---------------------\n"
+            "TIMESTAMP:\t" (:timestamp game) "\n"
+            "CURRENT PLAYER:\t" (:currentplayer game) "\n"
+            "CURRENT THROWS:\t "
+            (apply str
+              (for [t (:currentthrows game)]
+                (str (case (:multiplier t) 2 "D" 3 "T" "") (:score t) " ")))
+            "= " (total-points (:currentthrows game)) "\n"
+            "PLAYER ORDER:\t" (vec (map name (:playerorder game))) "\n"
+            "BOARDS:\t\t" (:boards game) "\n"
+            "PLAYERS:\n"
+            (apply str
+              (for [[k p] (:players game)]
+                (str "\t" (name k) "\n"
+                  "\t\t" "POSITION:\t" (:position p) "\n"
+                  "\t\t" "SCORE:\t\t" (:score p) "\n"
+                  "\t\t" "THROWS:\t\t" (:throws p) "\n"
+                  "\t\t" "HISTORY:\t"
+                  (apply str
+                    (for [thws (:history p)]
+                      (str "("
+                        (apply str
+                          (for [t thws]
+                            (str (case (:multiplier t) 2 "D" 3 "T" "") (:score t) " "))) ") ")))
+                  "\n")))
+            "\n"
+            )
+          ))
+      "END GAMES ===============================\n\n"
+      )
     )
-  (println "END GAMES ===============================\n\n")
   world)
+
+
 
 (defn make-game [payload gid]
   {gid {:timestamp (:timestamp payload)
@@ -68,13 +86,11 @@
                                 :score 301
                                 :throws 0
                                 :history []}]))
-
         }})
 
-(defn update-game [world gid fn payload]
-  (assoc world gid (fn (gid world) payload))
-  )
 
+
+;TODO: rewrite w/ position
 (defn get-next-player [game]
   (let [current (:currentplayer game)
         players (:playerorder game)
@@ -82,21 +98,24 @@
         get-throws #(get-in game [:players % :throws])
         throws (map get-throws players)]
 
+    (if (= current (last players))
+      (first players)
+      (nth players (inc index)))
     ;    (println "current" current "players" players "index" index "throws" throws)
-    (if (= current (last players)) ;last player in player order?
-      (if (apply = throws) ;all players have same amount of throws?
-        (first players) ;first player
-        (apply first (filter #(< (second %) (get-throws current)) (map list players throws))) ;first player with fewer throws
-        )
-      (if (< (get-throws (nth players (inc index))) (get-throws current)) ;next player has fewer throws?
-        (nth players (inc index)) ;next player in order is next
-        (if (apply = throws) ;next player with fewer throws is next
-          (if (empty? (:currentthrows game))
-            (first players)
-            (nth players (inc index)))
-          (nth players (inc index)))
-        )
-      )
+    ;    (if (= current (last players)) ;last player in player order?
+    ;      (if (apply = throws) ;all players have same amount of throws?
+    ;        (first players) ;first player
+    ;        (apply first (filter #(< (second %) (get-throws current)) (map list players throws))) ;first player with fewer throws
+    ;        )
+    ;      (if (< (get-throws (nth players (inc index))) (get-throws current)) ;next player has fewer throws?
+    ;        (nth players (inc index)) ;next player in order is next
+    ;        (if (apply = throws) ;next player with fewer throws is next
+    ;          (if (empty? (:currentthrows game))
+    ;            (first players)
+    ;            (nth players (inc index)))
+    ;          (nth players (inc index)))
+    ;        )
+    ;      )
 
     ))
 
@@ -114,8 +133,10 @@
   (assoc game :currentthrows []))
 
 (defn update-score [game]
-  (update-field game [:players (:currentplayer game) :score] - (total-points (:currentthrows game)))
-  )
+  (if-not (< (- (get-in game [:players (:currentplayer game) :score]) (total-points (:currentthrows game))) 0)
+    (update-field game [:players (:currentplayer game) :score] - (total-points (:currentthrows game)))
+    game
+    ))
 
 (defn update-throws [game]
   (update-field game [:players (:currentplayer game) :throws] + 3)
@@ -127,10 +148,8 @@
     (if (< (count (:currentthrows game)) 3)
       (update-field game [:players (:currentplayer game) :history] conj (take 3 (concat (:currentthrows game) [miss miss miss])))
       (update-field game [:players (:currentplayer game) :history] conj (:currentthrows game))
-
       )))
 
-;TODO: unfuck
 (defn finish-round [game payload]
   (if (empty? (:currentthrows game))
     (set-next-player game payload)
@@ -140,9 +159,17 @@
       (update-history payload)
       clear-current-throws
       (set-next-player payload)
-      )
-    )
-  )
+      )))
+
+(defn set-position [player game]
+  (let [positions (map #(get-in game [:players % :position]) (:playerorder game))
+        next-position (inc (count (remove nil? positions)))]
+    (if (= (count (:playerorder game)) (inc next-position))
+      (-> game
+        (assoc-in [:players player :position] next-position)
+        (assoc-in [:players (nth (:playerorder game) (.indexOf positions nil)) :position] (inc next-position)))
+      (assoc-in game [:players player :position] next-position)
+    )))
 
 (defn find-game [board-id world]
   (loop [w world]
@@ -151,22 +178,74 @@
       (if (contains? (get (val (first w)) :boards) board-id)
         (key (first w))
         (recur (rest w)))
-      )
-    )
+      )))
+
+(defn delete-game [gid world]
+  (dissoc world (keyword gid))
   )
 
-(defn update-world [world {:keys [command bid gid payload]}]
+(defn valid? [world {:keys [command bid gid payload]}]
   (case command
-    :start (into world (make-game payload gid))
-    :next (update-game world gid finish-round payload)
-    :throw (update-game world (find-game bid world) add-throw payload)
-    (do (println "Unknown command, ignoring.") world))
+    :next (contains? world gid)
+    :throw (contains? world (find-game bid world))
+    :start true
+    :delete true
+    false))
+
+(defn score-after-throw [world {:keys [command bid payload]}]
+  (when (= command :throw)
+    (let [gid (find-game bid world)
+          game (gid world)]
+      (- (get-in game [:players (:currentplayer game) :score]) (* (:score payload) (:multiplier payload)) (total-points (get-in world [gid :currentthrows])))
+      )))
+
+(defn bust? [world message]
+  (if (= (:command message) :throw)
+    (< (score-after-throw world message) 0)
+    false
+    ))
+
+(defn win? [world message]
+  (if (= (:command message) :throw)
+    (= (score-after-throw world message) 0)
+    false
+    ))
+
+(defn send-message [world message]
+
+  (let [gid (if (nil? (:gid message)) (find-game (:bid message) world) (:gid message))
+        currentplayer (name (get-in world [gid :currentplayer]))]
+    (cond
+      (bust? world message)
+        (println (str "BUST;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer))
+      (win? world message)
+        (println (str "WIN;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer))
+      :else
+        (println (str "SCORE;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer ";" (score-after-throw world message)))
+      ))
+  world)
+
+(defn update-game [world gid fn payload]
+  (assoc world gid (fn (gid world) payload))
   )
+
+(defn update-world [world {:keys [command bid gid payload] :as message}]
+  (if-not (valid? world message)
+    (do
+      (print-to-file (str "ERROR: Invalid message. (" message ")\n\n"))
+      world)
+    (case command
+      :start (into world (make-game payload gid))
+      :next (do (send-message world message) (update-game world gid finish-round payload))
+      :throw (do (send-message world message) (update-game world (find-game bid world) add-throw payload))
+      :delete (delete-game gid world)
+      (do (print-to-file "Unknown command, ignoring.") world))
+    ))
 
 (def world-atom (atom {}))
 
 (add-watch world-atom :watch-change (fn [key a old-val new-val]
-                                      (spit "test.tmp"  new-val)))
+                                      (spit "test.tmp" new-val)))
 
 (defn load-backup []
   (if-let [has-backup (.exists (java.io.File. "test.tmp"))]
@@ -175,8 +254,9 @@
     ))
 
 (defn -main []
-  (println "Dartbot started, waiting for messages.")
+  ;(println "Dartbot started, waiting for messages.")
+
   (loop [world (load-backup) line (read-line)]
     (let [message (parse-message line)]
-      (recur (reset! world-atom (print-world (update-world world message))) (read-line))
+      (recur (reset! world-atom (print-world-to-file (update-world world message))) (read-line))
       )))
