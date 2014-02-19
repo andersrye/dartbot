@@ -1,4 +1,6 @@
-(ns dartbot.core)
+(ns dartbot.core
+  (:require [dartbot.ws :as ws]
+            [clojure.data.json :as json]))
 
 (defn parse-int [string]
   (read-string (re-find #"\d+" string))
@@ -34,6 +36,7 @@
   )
 
 (defn print-world-to-file [world]
+  (ws/ws-send-data world)
   (print-to-file
     (str
       "CURRENT GAMES: ==========================\n\n"
@@ -172,13 +175,16 @@
     )))
 
 (defn find-game [board-id world]
-  (loop [w world]
-    (if (empty? w)
-      nil
-      (if (contains? (get (val (first w)) :boards) board-id)
-        (key (first w))
-        (recur (rest w)))
-      )))
+  (last (for [[k v] world :when (contains? (:boards v) board-id)]
+                             k))
+;  (loop [w world]
+;    (if (empty? w)
+;      nil
+;      (if (contains? (get (val (first w)) :boards) board-id)
+;        (key (first w))
+;        (recur (rest w)))
+;      ))
+  )
 
 (defn delete-game [gid world]
   (dissoc world (keyword gid))
@@ -253,10 +259,17 @@
     {}
     ))
 
-(defn -main []
-  ;(println "Dartbot started, waiting for messages.")
 
+(defn response-handler [data]
+  (ws/ws-generate-response @world-atom))
+
+(defn -main []
+  (println "Dartbot started, waiting for messages.")
+  (ws/start response-handler)
+  (println "Websocket up")
+  (reset! world-atom (load-backup))
   (loop [world (load-backup) line (read-line)]
     (let [message (parse-message line)]
+      ;(ws/ws-send (str message))
       (recur (reset! world-atom (print-world-to-file (update-world world message))) (read-line))
       )))
