@@ -2,12 +2,14 @@
   (:use [compojure.core :only (defroutes GET)]
         ring.util.response
         ring.middleware.cors
-        org.httpkit.server)
+        org.httpkit.server
+        [clojure.java.shell :only [sh]]
+        )
   (:require [compojure.route :as route]
             [compojure.handler :as handler]
             [ring.middleware.reload :as reload]
             [cheshire.core :refer :all]
-            [clojure.data.json :as json]
+            [org.httpkit.client :as http]
             ))
 
 (def clients (atom {}))
@@ -31,10 +33,11 @@
   )
 
 (defn ws-send-data [data]
-  (ws-send (json/write-str data)))
+
+  (ws-send (generate-string data)))
 
 (defn ws-generate-response [data]
-  (json/write-str data))
+  (generate-string data))
 
 (defroutes routes
   (GET "/dartbot" [] ws))

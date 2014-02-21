@@ -1,6 +1,5 @@
 (ns dartbot.core
-  (:require [dartbot.ws :as ws]
-            [clojure.data.json :as json]))
+  (:require [dartbot.ws :as ws]))
 
 (defn parse-int [string]
   (read-string (re-find #"\d+" string))
@@ -132,14 +131,33 @@
   (assoc-in game field (fn (get-in game field) data))
   )
 
+(defn set-field [a b]
+  b)
+
+(defn set-position [game player]
+  (let [positions (map #(get-in game [:players % :position]) (:playerorder game))
+        next-position (inc (count (remove nil? positions)))]
+    (if (= (count (:playerorder game)) (inc next-position))
+      (-> game
+        (assoc-in [:players player :position] "hurra")
+        (assoc-in [:players (nth (:playerorder game) (.indexOf positions nil)) :position] (inc next-position))
+        )
+      (assoc-in game [:players player :position] next-position)
+      )))
+
 (defn clear-current-throws [game]
   (assoc game :currentthrows []))
 
 (defn update-score [game]
-  (if-not (< (- (get-in game [:players (:currentplayer game) :score]) (total-points (:currentthrows game))) 0)
-    (update-field game [:players (:currentplayer game) :score] - (total-points (:currentthrows game)))
+  (let [new-score (- (get-in game [:players (:currentplayer game) :score])(total-points (:currentthrows game)))]
+  (if-not (<  new-score  0)
+    (if (= new-score 0)
+      (-> game
+        (update-field [:players (:currentplayer game) :score] set-field 0)
+        (set-position (:currentplayer game)))
+      (update-field game [:players (:currentplayer game) :score] - (total-points (:currentthrows game))))
     game
-    ))
+    )))
 
 (defn update-throws [game]
   (update-field game [:players (:currentplayer game) :throws] + 3)
@@ -164,15 +182,7 @@
       (set-next-player payload)
       )))
 
-(defn set-position [player game]
-  (let [positions (map #(get-in game [:players % :position]) (:playerorder game))
-        next-position (inc (count (remove nil? positions)))]
-    (if (= (count (:playerorder game)) (inc next-position))
-      (-> game
-        (assoc-in [:players player :position] next-position)
-        (assoc-in [:players (nth (:playerorder game) (.indexOf positions nil)) :position] (inc next-position)))
-      (assoc-in game [:players player :position] next-position)
-    )))
+
 
 (defn find-game [board-id world]
   (last (for [[k v] world :when (contains? (:boards v) board-id)]

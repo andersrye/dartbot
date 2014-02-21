@@ -95,7 +95,8 @@
   (clear-current-throws (mock-game {:currentthrows [1 2 3]})) => (mock-game))
 
 (fact "update score"
-  (update-score (mock-game {:currentthrows [throw-payload]})) => (mock-game {:currentthrows [throw-payload] :players {:bno {:score 241}}}))
+  (update-score (mock-game {:currentthrows [throw-payload]})) => (mock-game {:currentthrows [throw-payload] :players {:bno {:score 241}}})
+  (update-score (mock-game {:currentplayer :yns :currentthrows  [{:timestamp 1391449631516, :score 301, :multiplier 1}] :players {:ary {:position 1} :bno {:position 2}} })) => (mock-game {:currentthrows [{:timestamp 1391449631516, :score 20, :multiplier 3}] :players {:bno {:score 241}}}))
 
 (fact "find game by board-id"
   (find-game :bid1 (mock-world)) => :gid2
@@ -124,7 +125,7 @@
   )
 
 (fact "set position"
-  (set-position :ary (mock-game)) => (mock-game {:players {:ary {:position 1}}})
-  (set-position :ary (mock-game {:players {:bno {:position 1}}})) => (mock-game {:players {:bno {:position 1}, :ary {:position 2}}})
-  (set-position :ary (mock-game {:players {:bno {:position 2}, :hen {:position 1}}})) => (mock-game {:players {:bno {:position 2}, :hen {:position 1}, :yns {:position 4}, :ary {:position 3} }})
+  (set-position (mock-game) :ary) => (mock-game {:players {:ary {:position 1}}})
+  (set-position (mock-game {:players {:bno {:position 1}}}) :ary) => (mock-game {:players {:bno {:position 1}, :ary {:position 2}}})
+  (set-position (mock-game {:players {:bno {:position 2}, :hen {:position 1}}}) :ary) => (mock-game {:players {:bno {:position 2}, :hen {:position 1}, :yns {:position 4}, :ary {:position 3} }})
   )
