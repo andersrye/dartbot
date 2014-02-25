@@ -5,7 +5,11 @@
             [cheshire.core :refer :all]))
 
 (defn parse-int [string]
-  (read-string (re-find #"\d+" string))
+  (cond
+    (number? string) string
+    (nil? string) 0
+    :else (read-string (re-find #"\d+" string))
+    )
   )
 
 (defn parse-message [string]
@@ -80,7 +84,7 @@
 
 
 (defn make-game [payload gid]
-  {gid {:timestamp (:timestamp payload)
+  {gid {:timestamp (parse-int (:timestamp payload))
         :currentplayer (first (:players payload))
         :currentthrows []
         :playerorder (:players payload)
@@ -293,10 +297,10 @@
   (ws/start response-handler)
   (println "Websocket up")
   (reset! world-atom (load-backup))
-  (loop [world (load-backup) line (read-line)]
+  (loop [ line (read-line)]
     (let [message (parse-message line)]
-      (if (valid? world message)
-        (recur (reset! world-atom (update-world world message)) (read-line))
-        (recur world (read-line))
+      (if (valid? @world-atom message)
+        (do (reset! world-atom (update-world @world-atom message)) (recur (read-line)))
+        (recur (read-line))
         )
       )))
