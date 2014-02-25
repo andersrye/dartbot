@@ -1,5 +1,8 @@
 (ns dartbot.core
-  (:require [dartbot.ws :as ws]))
+  (:require [dartbot.ws :as ws]
+            [dartbot.udp :as udp]
+            [dartbot.http :as http]
+            [cheshire.core :refer :all]))
 
 (defn parse-int [string]
   (read-string (re-find #"\d+" string))
@@ -7,15 +10,15 @@
 
 (defn parse-message [string]
   (let [msg (clojure.string/split (clojure.string/lower-case string) #";")
-        command (keyword (first msg))]
+        command (first msg)]
     (case command
-      :start (let [[ts gid bid rules plrs] (rest msg)]
-               {:command command, :gid (keyword gid), :payload {:timestamp (parse-int ts), :bid (keyword bid), :rules rules, :players (vec (map keyword (clojure.string/split plrs #",")))}})
-      :next (let [[ts gid plr] (rest msg)]
-              {:command command, :gid (keyword gid), :payload {:timestamp (parse-int ts), :player (keyword plr)}})
-      :throw (let [[ts bid scr mlt] (rest msg)]
-               {:command command, :bid (keyword bid), :payload {:timestamp (parse-int ts), :score (parse-int scr), :multiplier (parse-int mlt)}})
-      :delete (let [[gid] (rest msg)]
+      "start" (let [[ts gid bid rules plrs] (rest msg)]
+               {:command command, :gid gid, :payload {:timestamp (parse-int ts), :bid  bid, :rules rules, :players (vec (clojure.string/split plrs #","))}})
+      "next" (let [[ts gid plr] (rest msg)]
+              {:command command, :gid gid, :payload {:timestamp (parse-int ts), :player plr}})
+      "throw" (let [[ts bid scr mlt] (rest msg)]
+               {:command command, :bid bid, :payload {:timestamp (parse-int ts), :score (parse-int scr), :multiplier (parse-int mlt)}})
+      "delete" (let [[gid] (rest msg)]
                 {:command command, :gid gid})
       nil)
     ))
@@ -35,7 +38,6 @@
   )
 
 (defn print-world-to-file [world]
-  (ws/ws-send-data world)
   (print-to-file
     (str
       "CURRENT GAMES: ==========================\n\n"
@@ -197,15 +199,15 @@
   )
 
 (defn delete-game [gid world]
-  (dissoc world (keyword gid))
+  (dissoc world gid)
   )
 
 (defn valid? [world {:keys [command bid gid payload]}]
   (case command
-    :next (contains? world gid)
-    :throw (contains? world (find-game bid world))
-    :start true
-    :delete true
+    "next" (contains? world gid)
+    "throw" (contains? world (find-game bid world))
+    "start" true
+    "delete" true
     false))
 
 (defn score-after-throw [world {:keys [command bid payload]}]
@@ -233,16 +235,16 @@
         currentplayer (name (get-in world [gid :currentplayer]))]
     (cond
       (bust? world message)
-        (println (str "BUST;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer))
+        (udp/broadcast (str "BUST;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer))
       (win? world message)
-        (println (str "WIN;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer))
+        (udp/broadcast (str "WIN;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer))
       :else
-        (println (str "SCORE;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer ";" (score-after-throw world message)))
+        (udp/broadcast (str "SCORE;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer ";" (score-after-throw world message)))
       ))
   world)
 
 (defn update-game [world gid fn payload]
-  (assoc world gid (fn (gid world) payload))
+  (assoc world gid (fn (get world gid) payload))
   )
 
 (defn update-world [world {:keys [command bid gid payload] :as message}]
@@ -251,17 +253,19 @@
       (print-to-file (str "ERROR: Invalid message. (" message ")\n\n"))
       world)
     (case command
-      :start (into world (make-game payload gid))
-      :next (do (send-message world message) (update-game world gid finish-round payload))
-      :throw (do (send-message world message) (update-game world (find-game bid world) add-throw payload))
-      :delete (delete-game gid world)
+      "start" (into world (make-game payload gid))
+      "next" (do (send-message world message) (update-game world gid finish-round payload))
+      "throw" (do (send-message world message) (update-game world (find-game bid world) add-throw payload))
+      "delete" (delete-game gid world)
       (do (print-to-file "Unknown command, ignoring.") world))
     ))
 
 (def world-atom (atom {}))
 
 (add-watch world-atom :watch-change (fn [key a old-val new-val]
-                                      (spit "test.tmp" new-val)))
+                                      (spit "test.tmp" new-val)
+                                      (print-world-to-file new-val)
+                                      (ws/ws-send-data new-val)))
 
 (defn load-backup []
   (if-let [has-backup (.exists (java.io.File. "test.tmp"))]
@@ -271,7 +275,18 @@
 
 
 (defn response-handler [data]
-  (ws/ws-generate-response @world-atom))
+  (let [msg (parse-string data true)
+;        msg (-> m
+;             (assoc :command (keyword (:command m)))
+;             (assoc :command (keyword (:command m))))
+        cmd (:command msg)]
+    (prn msg)
+    (case cmd
+      "request" (ws/ws-generate-response @world-atom)
+      (do (reset! world-atom (update-world @world-atom msg)) nil)
+      )
+  )
+  )
 
 (defn -main []
   (println "Dartbot started, waiting for messages.")
@@ -280,6 +295,8 @@
   (reset! world-atom (load-backup))
   (loop [world (load-backup) line (read-line)]
     (let [message (parse-message line)]
-      ;(ws/ws-send (str message))
-      (recur (reset! world-atom (print-world-to-file (update-world world message))) (read-line))
+      (if (valid? world parse-message)
+        (recur (reset! world-atom (update-world world message)) (read-line))
+        (recur world (read-line))
+        )
       )))
