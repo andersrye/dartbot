@@ -295,7 +295,7 @@
   (reset! world-atom (load-backup))
   (loop [world (load-backup) line (read-line)]
     (let [message (parse-message line)]
-      (if (valid? world parse-message)
+      (if (valid? world message)
         (recur (reset! world-atom (update-world world message)) (read-line))
         (recur world (read-line))
         )
