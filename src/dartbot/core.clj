@@ -269,6 +269,7 @@
 
 (defn end-game [world gid]
   (http/upload-game gid (get world gid))
+  (spit (str gid ".game") (get world gid))
   ;(delete-game gid world)
   world
   )
