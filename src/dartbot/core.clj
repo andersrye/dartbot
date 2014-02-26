@@ -283,7 +283,10 @@
       world)
     (case command
       "start" (into world (make-game payload gid))
-      "next" (update-game world gid finish-round payload)
+      "next" (if gid
+               (update-game world gid finish-round payload)
+               (update-game world (find-game bid world) finish-round payload)
+               )
       "throw" (do (send-message world message) (update-game world (find-game bid world) add-throw payload))
       "delete" (delete-game gid world)
       "end" (end-game world gid)
