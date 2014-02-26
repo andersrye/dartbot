@@ -224,6 +224,7 @@
 
 (defn valid? [world {:keys [command bid gid payload]}]
   (case command
+    "next" (or (contains? world gid) (contains? world (find-game bid world)))
     "throw" (contains? world (find-game bid world))
     "start" true
     "delete" true
@@ -269,7 +270,6 @@
 
 (defn end-game [world gid]
   (http/upload-game gid (get world gid))
-  (spit (str gid ".game") (get world gid))
   ;(delete-game gid world)
   world
   )
