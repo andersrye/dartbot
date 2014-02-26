@@ -224,7 +224,6 @@
 
 (defn valid? [world {:keys [command bid gid payload]}]
   (case command
-    "next" (contains? world gid)
     "throw" (contains? world (find-game bid world))
     "start" true
     "delete" true
