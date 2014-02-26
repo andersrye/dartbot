@@ -33,8 +33,8 @@
   )
 
 (defn ws-send-data [data]
-
-  (ws-send (generate-string data)))
+  (ws-send (generate-string data))
+  data)
 
 (defn ws-generate-response [data]
   (generate-string data))
