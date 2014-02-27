@@ -6,4 +6,4 @@
   (let [options {:headers {"Accept" "application/json"
                           "Content-Type" "application/json"}
                 :body (generate-string game)}]
-  @(http/post (str "http://dart-mongo.herokuapp.com/dart?id=" "gid123") options)))
+  @(http/post (str "http://dart-mongo.herokuapp.com/dart/" gid) options)))
