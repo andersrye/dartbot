@@ -3,7 +3,7 @@
   <component name="FacetManager">
     <facet type="Clojure" name="Clojure">
       <configuration>
-        <option name="myJvmOpts" value="-Xss1m -server -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005" />
+        <option name="myJvmOpts" value="-Xss1m -server -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5006" />
       </configuration>
     </facet>
   </component>

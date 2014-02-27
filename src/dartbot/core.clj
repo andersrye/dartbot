@@ -1,4 +1,5 @@
 (ns dartbot.core
+  (:import [java.net InetAddress])
   (:require [dartbot.ws :as ws]
             [dartbot.udp :as udp]
             [dartbot.http :as http]
@@ -24,6 +25,7 @@
                 {:command command, :bid bid, :payload {:timestamp (parse-int ts), :score (parse-int scr), :multiplier (parse-int mlt)}})
       "delete" (let [[gid] (rest msg)]
                  {:command command, :gid gid})
+      "hello?" {:command command}
       nil)
     ))
 
@@ -229,6 +231,7 @@
     "start" true
     "delete" true
     "end" true
+    "hello?" true
     false))
 
 (defn score-after-throw [world {:keys [command bid payload]}]
@@ -253,15 +256,15 @@
 
 (defn send-message [world message]
 
-  (let [gid (if (nil? (:gid message)) (find-game (:bid message) world) (:gid message))
-        currentplayer (name (get-in world [gid :currentplayer]))]
-    (cond
-      (bust-after-throw? world message)
-      (udp/broadcast (str "BUST;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer))
-      (win-after-throw? world message)
-      (udp/broadcast (str "WIN;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer))
-      :else (udp/broadcast (str "SCORE;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer ";" (score-after-throw world message)))
-      ))
+;  (let [gid (if (nil? (:gid message)) (find-game (:bid message) world) (:gid message))
+;        currentplayer (name (get-in world [gid :currentplayer]))]
+;    (cond
+;      (bust-after-throw? world message)
+;      (udp/broadcast (str "BUST;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer))
+;      (win-after-throw? world message)
+;      (udp/broadcast (str "WIN;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer))
+;      :else (udp/broadcast (str "SCORE;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer ";" (score-after-throw world message)))
+;      ))
   world)
 
 (defn update-game [world gid fn payload]
@@ -274,7 +277,8 @@
   world
   )
 
-
+(defn broadcast-ip []
+  (udp/broadcast (.getHostAddress (InetAddress/getLocalHost))))
 
 (defn update-world [world {:keys [command bid gid payload] :as message}]
   (if-not (valid? world message)
@@ -290,6 +294,7 @@
       "throw" (do (send-message world message) (update-game world (find-game bid world) add-throw payload))
       "delete" (delete-game gid world)
       "end" (end-game world gid)
+      "hello?" (do (prn "hallo") (broadcast-ip))
       (do (print-to-file "Unknown command, ignoring.") world)
       )))
 
@@ -297,7 +302,7 @@
 
 (add-watch world-atom :watch-change (fn [key a old-val new-val]
                                       (spit "test.tmp" new-val)
-                                      ;(print-world-to-file new-val)
+                                      (print-world-to-file new-val)
                                       (ws/ws-send-data new-val)
 ))
 
@@ -320,14 +325,16 @@
   )
 
 (defn -main []
-  (println "Dartbot started, waiting for messages.")
   (ws/start response-handler)
   (println "Websocket up")
+  (udp/start)
   (reset! world-atom (load-backup))
-  (loop [line (read-line)]
-    (let [message (parse-message line)]
+  (println "Dartbot started, waiting for messages.")
+  (loop [msg (udp/listen)]
+    (prn msg)
+    (let [message (parse-message msg)]
       (if (valid? @world-atom message)
-        (do (reset! world-atom (update-world @world-atom message)) (recur (read-line)))
-        (recur (read-line))
+        (do (reset! world-atom (update-world @world-atom message)) (recur (udp/listen)))
+        (recur (udp/listen))
         )
       )))

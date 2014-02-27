@@ -28,7 +28,7 @@
 
 (defn ws-send [string]
   (doseq [client @clients]
-    (send! (key client)string
+    (send! (key client) string
       false))
   )
 
