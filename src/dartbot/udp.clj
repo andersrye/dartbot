@@ -1,11 +1,15 @@
 (ns dartbot.udp
-  (:import [java.net DatagramSocket InetAddress DatagramPacket MulticastSocket]))
+  (:import [java.net DatagramSocket InetAddress DatagramPacket MulticastSocket])
+  (:use [clojure.java.shell :only [sh]]))
 
 (def socket (atom nil))
+(def default-port 5000)
 
-(defn start
-  ([] (start 5000))
-  ([port] (reset! socket (MulticastSocket. port))))
+(defn broadcast [msg]
+  (when @socket
+    (let [message (DatagramPacket. (byte-array (map (comp byte int) msg)) (count msg) (InetAddress/getByName "255.255.255.255") default-port)]
+      (.send @socket message 1000000)
+      )))
 
 (defn listen []
   (when @socket
@@ -13,9 +17,17 @@
       (.receive @socket packet)
       (String.  (.getData packet) 0 (.getLength packet)))))
 
-(defn broadcast [msg]
-  (when @socket
-    (let [message (DatagramPacket. (byte-array (map (comp byte int) msg)) (count msg) (InetAddress/getByName "255.255.255.255") 5000)]
-      (.send @socket message 1000000)
-      )))
+(defn udp-listener [handler]
+  (loop [msg (listen)]
+    (do (handler msg) (recur (listen)))))
 
+(defn start
+  ([handler] (start handler default-port))
+  ([handler port]
+    (reset! socket (MulticastSocket. port))
+    (future (udp-listener handler))))
+
+(defn broadcast-ip []
+  (broadcast (.getHostAddress (InetAddress/getLocalHost)))
+  ;(sh )
+  )

@@ -14,7 +14,7 @@
   )
 
 (defn parse-message [string]
-  (let [msg (clojure.string/split (clojure.string/lower-case string) #";")
+  (let [msg (clojure.string/split (clojure.string/lower-case (clojure.string/trim string)) #";")
         command (first msg)]
     (case command
       "start" (let [[ts gid bid rules plrs] (rest msg)]
@@ -122,24 +122,7 @@
     (if (= next-player current)
       nil
       next-player
-      )
-    ;    (println "current" current "players" players "index" index "throws" throws)
-    ;    (if (= current (last players)) ;last player in player order?
-    ;      (if (apply = throws) ;all players have same amount of throws?
-    ;        (first players) ;first player
-    ;        (apply first (filter #(< (second %) (get-throws current)) (map list players throws))) ;first player with fewer throws
-    ;        )
-    ;      (if (< (get-throws (nth players (inc index))) (get-throws current)) ;next player has fewer throws?
-    ;        (nth players (inc index)) ;next player in order is next
-    ;        (if (apply = throws) ;next player with fewer throws is next
-    ;          (if (empty? (:currentthrows game))
-    ;            (first players)
-    ;            (nth players (inc index)))
-    ;          (nth players (inc index)))
-    ;        )
-    ;      )
-
-    ))
+      )))
 
 (defn set-next-player [game payload]
   (if (nil? (:player payload))
@@ -256,15 +239,15 @@
 
 (defn send-message [world message]
 
-;  (let [gid (if (nil? (:gid message)) (find-game (:bid message) world) (:gid message))
-;        currentplayer (name (get-in world [gid :currentplayer]))]
-;    (cond
-;      (bust-after-throw? world message)
-;      (udp/broadcast (str "BUST;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer))
-;      (win-after-throw? world message)
-;      (udp/broadcast (str "WIN;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer))
-;      :else (udp/broadcast (str "SCORE;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer ";" (score-after-throw world message)))
-;      ))
+  ;  (let [gid (if (nil? (:gid message)) (find-game (:bid message) world) (:gid message))
+  ;        currentplayer (name (get-in world [gid :currentplayer]))]
+  ;    (cond
+  ;      (bust-after-throw? world message)
+  ;      (udp/broadcast (str "BUST;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer))
+  ;      (win-after-throw? world message)
+  ;      (udp/broadcast (str "WIN;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer))
+  ;      :else (udp/broadcast (str "SCORE;" (System/currentTimeMillis) ";" (name gid) ";" currentplayer ";" (score-after-throw world message)))
+  ;      ))
   world)
 
 (defn update-game [world gid fn payload]
@@ -273,17 +256,15 @@
 
 (defn end-game [world gid]
   (http/upload-game gid (get world gid))
+  (spit (str "games/" gid ".game") (get world gid))
   ;(delete-game gid world)
   world
   )
 
-(defn broadcast-ip []
-  (udp/broadcast (.getHostAddress (InetAddress/getLocalHost))))
-
 (defn update-world [world {:keys [command bid gid payload] :as message}]
   (if-not (valid? world message)
     (do
-      (print-to-file (str "ERROR: Invalid message. (" message ")\n\n"))
+      (prn (str "ERROR: Invalid message. (" message ")\n\n"))
       world)
     (case command
       "start" (into world (make-game payload gid))
@@ -294,23 +275,25 @@
       "throw" (do (send-message world message) (update-game world (find-game bid world) add-throw payload))
       "delete" (delete-game gid world)
       "end" (end-game world gid)
-      "hello?" (do (prn "hallo") (broadcast-ip))
-      (do (print-to-file "Unknown command, ignoring.") world)
+      "hello?" (do (udp/broadcast-ip) world)
+      (do (prn "Unknown command, ignoring.") world)
       )))
 
 (def world-atom (atom {}))
 
 (add-watch world-atom :watch-change (fn [key a old-val new-val]
-                                      (spit "test.tmp" new-val)
-                                      (print-world-to-file new-val)
+                                      (spit "world-data" new-val)
+                                      ;(print-world-to-file new-val)
                                       (ws/ws-send-data new-val)
-))
+                                      ))
 
 (defn load-backup []
-  (if-let [has-backup (.exists (java.io.File. "test.tmp"))]
-    (read-string (slurp "test.tmp"))
-    {}
-    ))
+  (if-let [has-backup (.exists (java.io.File. "world-data"))]
+    (let [backup (slurp "world-data")]
+      (if (not= backup "")
+        (read-string backup)
+        {}))
+    {}))
 
 
 (defn response-handler [data]
@@ -319,22 +302,26 @@
     (prn msg)
     (case cmd
       "request" (ws/ws-generate-response @world-atom)
-      (do (reset! world-atom (update-world @world-atom msg)) nil)
-      )
-    )
-  )
+      (do (reset! world-atom (update-world @world-atom msg)) nil))))
 
-(defn -main []
+(defn udp-handler [msg]
+  (prn msg)
+  (let [message (parse-message msg)]
+    (when (valid? @world-atom message)
+      (reset! world-atom (update-world @world-atom message)))))
+
+(defn start-bot []
   (ws/start response-handler)
   (println "Websocket up")
-  (udp/start)
+
+  (udp/start udp-handler)
+  (println "UDP listener up")
+
   (reset! world-atom (load-backup))
-  (println "Dartbot started, waiting for messages.")
-  (loop [msg (udp/listen)]
-    (prn msg)
-    (let [message (parse-message msg)]
-      (if (valid? @world-atom message)
-        (do (reset! world-atom (update-world @world-atom message)) (recur (udp/listen)))
-        (recur (udp/listen))
-        )
-      )))
+  (println "World loaded")
+
+  (println "Dartbot started, waiting for messages."))
+
+(defn -main []
+  (start-bot))
+
