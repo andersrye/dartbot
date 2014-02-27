@@ -122,24 +122,7 @@
     (if (= next-player current)
       nil
       next-player
-      )
-    ;    (println "current" current "players" players "index" index "throws" throws)
-    ;    (if (= current (last players)) ;last player in player order?
-    ;      (if (apply = throws) ;all players have same amount of throws?
-    ;        (first players) ;first player
-    ;        (apply first (filter #(< (second %) (get-throws current)) (map list players throws))) ;first player with fewer throws
-    ;        )
-    ;      (if (< (get-throws (nth players (inc index))) (get-throws current)) ;next player has fewer throws?
-    ;        (nth players (inc index)) ;next player in order is next
-    ;        (if (apply = throws) ;next player with fewer throws is next
-    ;          (if (empty? (:currentthrows game))
-    ;            (first players)
-    ;            (nth players (inc index)))
-    ;          (nth players (inc index)))
-    ;        )
-    ;      )
-
-    ))
+      )))
 
 (defn set-next-player [game payload]
   (if (nil? (:player payload))
@@ -273,6 +256,7 @@
 
 (defn end-game [world gid]
   (http/upload-game gid (get world gid))
+  (spit (str "games/" gid ".game") (get world gid))
   ;(delete-game gid world)
   world
   )
@@ -299,7 +283,7 @@
 
 (add-watch world-atom :watch-change (fn [key a old-val new-val]
                                       (spit "world-data" new-val)
-                                      (print-world-to-file new-val)
+                                      ;(print-world-to-file new-val)
                                       (ws/ws-send-data new-val)
                                       ))
 
