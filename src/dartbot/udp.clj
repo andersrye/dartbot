@@ -1,5 +1,5 @@
 (ns dartbot.udp
-  (:import [java.net DatagramSocket Inet4Address DatagramPacket MulticastSocket NetworkInterface])
+  (:import [java.net DatagramSocket InetAddress Inet4Address DatagramPacket MulticastSocket NetworkInterface])
   (:use [clojure.java.shell :only [sh]]))
 
 (def socket (atom nil))
