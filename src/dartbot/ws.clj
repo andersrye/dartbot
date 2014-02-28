@@ -3,7 +3,9 @@
         ring.util.response
         ring.middleware.cors
         org.httpkit.server
-        [clojure.java.shell :only [sh]]
+        [clojure.java.shell :only [sh]
+        ;clojure.pprint
+        ]
         )
   (:require [compojure.route :as route]
             [compojure.handler :as handler]
@@ -13,22 +15,33 @@
             ))
 
 (def clients (atom {}))
-(def response-handler (atom (fn [data] "hello")))
+(def response-handler (atom (fn [data sid] "hello")))
 
-(defn ws
-  [req]
+(defn new-client [con]
+  {:conn con
+   :game "none" ;all, gid123, none
+   :update "none" ;all, diff, messages, none
+   })
+
+(defn ws [req]
+  (let [sid (str "sid" (System/currentTimeMillis))]
   (with-channel req con
-    (swap! clients assoc con true)
+    (swap! clients assoc sid (new-client con))
     (println con " connected")
     (on-close con (fn [status]
-                    (swap! clients dissoc con)
+                    (swap! clients dissoc sid)
                     (println con " disconnected. status: " status)))
     (on-receive con (fn [data]
-                          (send! con (@response-handler data) )))))
+                      (send! con (@response-handler sid data)))))))
+
+(defn update-client [sid params]
+  (swap! clients assoc sid (merge (get @clients sid) params))
+  (prn @clients)
+  )
 
 (defn ws-send [string]
   (doseq [client @clients]
-    (send! (key client) string
+    (send! (:conn (val client)) string
       false))
   )
 
@@ -50,3 +63,5 @@
 (defn start [r-handler]
   (reset! response-handler r-handler)
   (run-server application {:port 8080 :join? false}))
+
+;(defn pp [s] (clojure.pprint/pprint s))

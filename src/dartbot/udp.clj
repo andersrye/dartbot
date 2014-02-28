@@ -1,5 +1,5 @@
 (ns dartbot.udp
-  (:import [java.net DatagramSocket InetAddress DatagramPacket MulticastSocket])
+  (:import [java.net DatagramSocket Inet4Address DatagramPacket MulticastSocket NetworkInterface])
   (:use [clojure.java.shell :only [sh]]))
 
 (def socket (atom nil))
@@ -27,7 +27,13 @@
     (reset! socket (MulticastSocket. port))
     (future (udp-listener handler))))
 
+(defn get-ip []
+  (flatten (for [n (enumeration-seq (java.net.NetworkInterface/getNetworkInterfaces)) :when (not-empty (enumeration-seq (.getInetAddresses n)))]
+    (for [a (enumeration-seq (.getInetAddresses n)) :when (instance? Inet4Address a)]
+      (str (.getHostAddress a))
+      ))))
+
 (defn broadcast-ip []
-  (broadcast (.getHostAddress (InetAddress/getLocalHost)))
-  ;(sh )
-  )
+  (for [ip (get-ip)]
+    (when (not= ip "127.0.0.1")
+      (broadcast ip))))

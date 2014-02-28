@@ -238,7 +238,6 @@
     ))
 
 (defn send-message [world message]
-
   ;  (let [gid (if (nil? (:gid message)) (find-game (:bid message) world) (:gid message))
   ;        currentplayer (name (get-in world [gid :currentplayer]))]
   ;    (cond
@@ -296,12 +295,22 @@
     {}))
 
 
-(defn response-handler [data]
+(defn request-handler [sid {:keys [game update] :as params}]
+  (ws/update-client sid (dissoc params :command))
+  (when game
+    (case game
+      "all" (ws/ws-generate-response @world-atom)
+      "none" nil
+      ((ws/ws-generate-response (get @world-atom game)
+    )
+  ))))
+
+(defn response-handler [sid data]
   (let [msg (parse-string data true)
         cmd (:command msg)]
     (prn msg)
     (case cmd
-      "request" (ws/ws-generate-response @world-atom)
+      "request" (request-handler sid msg)
       (do (reset! world-atom (update-world @world-atom msg)) nil))))
 
 (defn udp-handler [msg]
@@ -324,4 +333,6 @@
 
 (defn -main []
   (start-bot))
+
+;(start-bot)
 
