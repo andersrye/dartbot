@@ -7,6 +7,7 @@
 
 (defn broadcast [msg]
   (when @socket
+    (println "Broadcasting message: " msg)
     (let [message (DatagramPacket. (byte-array (map (comp byte int) msg)) (count msg) (InetAddress/getByName "255.255.255.255") default-port)]
       (.send @socket message 1000000)
       )))
@@ -34,6 +35,6 @@
       ))))
 
 (defn broadcast-ip []
-  (for [ip (get-ip)]
+  (doseq [ip (get-ip)]
     (when (not= ip "127.0.0.1")
       (broadcast ip))))
