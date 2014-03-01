@@ -39,17 +39,23 @@
   (prn @clients)
   )
 
-(defn ws-send [string]
-  (doseq [client @clients]
-    (send! (:conn (val client)) string
-      false))
-  )
-
-(defn ws-send-data [data]
-  (ws-send (generate-string data))
-  data)
+(defn send-update [type data]
+  (doseq [[_ client] @clients]
+    (when (= (:update client) type)
+      (send! (:conn client) (generate-string data)))))
+;
+;(defn ws-send [string]
+;  (doseq [client @clients]
+;    (send! (:conn (val client)) string
+;      false))
+;  )
+;
+;(defn ws-send-data [data]
+;  (ws-send (generate-string data))
+;  data)
 
 (defn ws-generate-response [data]
+  ;(prn data)
   (generate-string data))
 
 (defroutes routes

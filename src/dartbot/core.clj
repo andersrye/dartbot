@@ -3,7 +3,8 @@
   (:require [dartbot.ws :as ws]
             [dartbot.udp :as udp]
             [dartbot.http :as http]
-            [cheshire.core :refer :all]))
+            [cheshire.core :refer :all]
+            [clojure.data]))
 
 (defn parse-int [string]
   (cond
@@ -265,25 +266,28 @@
     (do
       (prn (str "ERROR: Invalid message. (" message ")\n\n"))
       world)
-    (case command
-      "start" (into world (make-game payload gid))
-      "next" (if gid
-               (update-game world gid finish-round payload)
-               (update-game world (find-game bid world) finish-round payload)
-               )
-      "throw" (do (send-message world message) (update-game world (find-game bid world) add-throw payload))
-      "delete" (delete-game gid world)
-      "end" (end-game world gid)
-      "hello?" (do (udp/broadcast-ip) world)
-      (do (prn "Unknown command, ignoring.") world)
-      )))
+    (do
+      (ws/send-update "messages" message)
+      (case command
+        "start" (into world (make-game payload gid))
+        "next" (if gid
+                 (update-game world gid finish-round payload)
+                 (update-game world (find-game bid world) finish-round payload)
+                 )
+        "throw" (do (send-message world message) (update-game world (find-game bid world) add-throw payload))
+        "delete" (delete-game gid world)
+        "end" (end-game world gid)
+        "hello?" (do (udp/broadcast-ip) world)
+        (do (prn "Unknown command, ignoring.") world)
+        ))))
 
 (def world-atom (atom {}))
 
 (add-watch world-atom :watch-change (fn [key a old-val new-val]
                                       (spit "world-data" new-val)
                                       ;(print-world-to-file new-val)
-                                      (ws/ws-send-data new-val)
+                                      (ws/send-update "all" new-val)
+                                      (ws/send-update "diff" (first (clojure.data/diff new-val old-val)))
                                       ))
 
 (defn load-backup []
@@ -297,13 +301,12 @@
 
 (defn request-handler [sid {:keys [game update] :as params}]
   (ws/update-client sid (dissoc params :command))
+  (println "handling request")
   (when game
     (case game
       "all" (ws/ws-generate-response @world-atom)
       "none" nil
-      ((ws/ws-generate-response (get @world-atom game)
-    )
-  ))))
+      (ws/ws-generate-response {game (get @world-atom game)}))))
 
 (defn response-handler [sid data]
   (let [msg (parse-string data true)
