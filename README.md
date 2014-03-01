@@ -22,7 +22,7 @@ Communicating with the dartbot is done either by broadcasting UDP messages or ov
 
 Connect using websockets at:
 
-    ws://<ip>:8080
+    ws://<ip>:8080/dartbot
     
 If you don't know the IP, broadcast the following message on port 5000
 
