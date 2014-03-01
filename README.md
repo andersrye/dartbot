@@ -9,10 +9,11 @@ Dartbot for [mad-darts](https://github.com/andersrye/mad-darts "mad-darts")
 * Navigate to dartbot folder and run using on of the following commands: 
 
 
-    lein run
+	lein run
+
 or
 
-    lein trampoline run
+	lein trampoline run
 
 ## Communicating with dartbot
 
