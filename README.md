@@ -14,7 +14,7 @@ Dartbot for [mad-darts](https://github.com/andersrye/mad-darts "mad-darts")
 
 or
 
-	lein trampoline run
+		lein trampoline run
 
 ## Communicating with dartbot
 
