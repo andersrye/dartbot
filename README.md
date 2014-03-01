@@ -28,7 +28,7 @@ If you don't know the IP, broadcast the following message on port 5000
 
     hello?
 
-and the bot will reply with it's IP on the same port.
+and the bot will reply with its IP on the same port.
 
 After connecting, you will need to send an initial request message, in order to start receiving. Messages over websockets are JSON-strings.
 
