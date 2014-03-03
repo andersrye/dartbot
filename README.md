@@ -6,8 +6,7 @@ Dartbot for [mad-darts](https://github.com/andersrye/mad-darts "mad-darts")
 
 * Install [Leiningen](http://leiningen.org)
 * Clone this repo
-* Navigate to dartbot folder and run using one of the following commands: 
-. 
+* Navigate to dartbot folder and run using one of the following commands:  
 
 
 		lein run

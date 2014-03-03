@@ -305,8 +305,12 @@
   (when game
     (case game
       "all" (ws/ws-generate-response @world-atom)
+      "archive" (ws/ws-generate-response (vec (for [f (.listFiles (java.io.File. (str "games/")))] (.getName f))))
       "none" nil
-      (ws/ws-generate-response {game (get @world-atom game)}))))
+      (if (nil? (get @world-atom game))
+        (when (.exists (java.io.File. (str "games/" game ".game")))
+          (ws/ws-generate-response {game (read-string (slurp (str "games/" game ".game")))}))
+        (ws/ws-generate-response {game (get @world-atom game)})))))
 
 (defn response-handler [sid data]
   (let [msg (parse-string data true)
