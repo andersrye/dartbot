@@ -10,9 +10,7 @@
   (cond
     (number? string) string
     (nil? string) 0
-    :else (read-string (re-find #"\d+" string))
-    )
-  )
+    :else (read-string (re-find #"\d+" string))))
 
 (defn parse-message [string]
   (let [msg (clojure.string/split (clojure.string/lower-case (clojure.string/trim string)) #";")
@@ -27,12 +25,11 @@
       "delete" (let [[gid] (rest msg)]
                  {:command command, :gid gid})
       "hello?" {:command command}
-      nil)
-    ))
+      "undo" {:command command}
+      nil)))
 
 (defn total-points [throws]
-  (apply + (for [t throws] (* (:score t) (:multiplier t))))
-  )
+  (apply + (for [t throws] (* (:score t) (:multiplier t)))))
 
 (defn bust? [game]
   (< (- (get-in game [:players (:currentplayer game) :score]) (total-points (:currentthrows game))) 0)
@@ -216,6 +213,7 @@
     "delete" true
     "end" true
     "hello?" true
+    "undo" true
     false))
 
 (defn score-after-throw [world {:keys [command bid payload]}]
@@ -261,12 +259,32 @@
   world
   )
 
+(def world-atom (atom {}))
+(def undo-list (atom ()))
+
+(defn undo []
+  (if (not-empty @undo-list)
+    (let [return (first @undo-list)]
+      (reset! undo-list (rest @undo-list))
+      return)
+    @world-atom))
+
+(add-watch world-atom :watch-change (fn [key a old-val new-val]
+                                      (spit "world-data" new-val)
+                                      ;(print-world-to-file new-val)
+                                      (ws/send-update "all" new-val)
+                                      (ws/send-update "diff" (first (clojure.data/diff new-val old-val)))
+                                      ;(reset! undo-list (take 5 (conj @undo-list old-val)))
+
+                                      ))
+
 (defn update-world [world {:keys [command bid gid payload] :as message}]
   (if-not (valid? world message)
     (do
       (prn (str "ERROR: Invalid message. (" message ")\n\n"))
       world)
     (do
+      (when (not= command "undo") (reset! undo-list (take 10 (conj @undo-list world))))
       (ws/send-update "messages" message)
       (case command
         "start" (into world (make-game payload gid))
@@ -278,17 +296,11 @@
         "delete" (delete-game gid world)
         "end" (end-game world gid)
         "hello?" (do (udp/broadcast-ip) world)
+        "undo" (undo)
         (do (prn "Unknown command, ignoring.") world)
         ))))
 
-(def world-atom (atom {}))
 
-(add-watch world-atom :watch-change (fn [key a old-val new-val]
-                                      (spit "world-data" new-val)
-                                      ;(print-world-to-file new-val)
-                                      (ws/send-update "all" new-val)
-                                      (ws/send-update "diff" (first (clojure.data/diff new-val old-val)))
-                                      ))
 
 (defn load-backup []
   (if-let [has-backup (.exists (java.io.File. "world-data"))]
