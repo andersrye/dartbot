@@ -1,4 +1,4 @@
-(defproject dartbot "0.1.0-SNAPSHOT"
+(defproject dartbot "0.2.0"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
@@ -20,4 +20,6 @@
 
   :profiles {:dev {:plugins [[lein-midje "3.1.1"]]}}
 
-  :main dartbot.core)
+  :aot :all
+  :main dartbot.core
+  )

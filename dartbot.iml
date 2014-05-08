@@ -2,9 +2,7 @@
 <module org.jetbrains.idea.maven.project.MavenProjectsManager.isMavenModule="true" type="JAVA_MODULE" version="4">
   <component name="FacetManager">
     <facet type="Clojure" name="Clojure">
-      <configuration>
-        <option name="myJvmOpts" value="-Xss1m -server -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5006" />
-      </configuration>
+      <configuration />
     </facet>
   </component>
   <component name="NewModuleRootManager" inherit-compiler-output="false">

@@ -68,6 +68,6 @@
 
 (defn start [r-handler]
   (reset! response-handler r-handler)
-  (run-server application {:port 8080 :join? false}))
+  (run-server application {:port 4440 :join? false}))
 
 ;(defn pp [s] (clojure.pprint/pprint s))

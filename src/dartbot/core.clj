@@ -4,7 +4,8 @@
             [dartbot.udp :as udp]
             [dartbot.http :as http]
             [cheshire.core :refer :all]
-            [clojure.data]))
+            [clojure.data])
+  (:gen-class))
 
 (defn parse-int [string]
   (cond
@@ -350,7 +351,7 @@
 
   (println "Dartbot started, waiting for messages."))
 
-(defn -main []
+(defn -main [& args]
   (start-bot))
 
 ;(start-bot)
