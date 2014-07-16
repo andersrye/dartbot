@@ -8,9 +8,9 @@ output.log*
 game.log
 print-output.txt
 world-data
-*.jar
 *.class
 /.lein-*
 /.nrepl-port
 .idea/
 /games/
+*.iml

@@ -11,13 +11,15 @@
                  [ring/ring-devel "1.1.8"]
                  [compojure "1.1.5"]
                  [ring-cors "0.1.0"]
-                 [org.clojure/data.json "0.2.4"]]
+                 [org.clojure/data.json "0.2.4"]
+                 [serial-port "1.1.2"]
+                 [local/SerialComm "0.9"]]
 
   :min-lein-version "2.0.0"
   :properties {:project.build.sourceEncoding "UTF-8"}
 
-  :repositories {"stuart" "http://stuartsierra.com/maven2"}
-
+  :repositories {"stuart" "http://stuartsierra.com/maven2"
+                 "localrepo" "file:lib"}
   :profiles {:dev {:plugins [[lein-midje "3.1.1"]]}}
 
   :aot :all

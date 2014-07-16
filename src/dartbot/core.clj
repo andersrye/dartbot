@@ -3,6 +3,7 @@
   (:require [dartbot.ws :as ws]
             [dartbot.udp :as udp]
             [dartbot.http :as http]
+            [dartbot.serial :as serial]
             [cheshire.core :refer :all]
             [clojure.data])
   (:gen-class))
@@ -339,12 +340,17 @@
     (when (valid? @world-atom message)
       (reset! world-atom (update-world @world-atom message)))))
 
+(defn serial-handler [msg]
+  (udp-handler msg))
+
 (defn start-bot []
   (ws/start response-handler)
   (println "Websocket up")
 
   (udp/start udp-handler)
   (println "UDP listener up")
+
+  (serial/start serial-handler)
 
   (reset! world-atom (load-backup))
   (println "World loaded")
