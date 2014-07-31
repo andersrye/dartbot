@@ -126,3 +126,5 @@ Copyright © 2014 FIXME
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
+
+mvn deploy:deploy-file -DgroupId=local -DartifactId=SerialComm -Dversion=0.9 -Dpackaging=jar -Dfile=SerialComm.jar -Durl=file:lib

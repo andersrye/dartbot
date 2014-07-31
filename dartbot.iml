@@ -85,6 +85,9 @@
     <orderEntry type="library" name="Maven: clout:clout:1.0.1" level="project" />
     <orderEntry type="library" name="Maven: ring-cors:ring-cors:0.1.0" level="project" />
     <orderEntry type="library" name="Maven: org.clojure:data.json:0.2.4" level="project" />
+    <orderEntry type="library" name="Maven: serial-port:serial-port:1.1.2" level="project" />
+    <orderEntry type="library" name="Maven: rxtx22:rxtx22:1.0.6" level="project" />
+    <orderEntry type="library" name="Maven: local:SerialComm:0.9" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: org.clojure:tools.nrepl:0.2.3" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: clojure-complete:clojure-complete:0.2.3" level="project" />
   </component>
