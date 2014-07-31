@@ -1,5 +1,6 @@
 (ns dartbot.core
-  (:import [java.net InetAddress])
+  (:import [java.net InetAddress]
+           [java.io File])
   (:require [dartbot.ws :as ws]
             [dartbot.udp :as udp]
             [dartbot.http :as http]
@@ -305,7 +306,8 @@
 
 
 (defn load-backup []
-  (if-let [has-backup (.exists (java.io.File. "world-data"))]
+  (println "loading from" (.getAbsolutePath (File. "world-data")) ":" (.exists (File. "world-data")))
+  (if (.exists (File. "world-data"))
     (let [backup (slurp "world-data")]
       (if (not= backup "")
         (read-string backup)
@@ -319,10 +321,10 @@
   (when game
     (case game
       "all" (ws/ws-generate-response @world-atom)
-      "archive" (ws/ws-generate-response (vec (for [f (.listFiles (java.io.File. (str "games/")))] (.getName f))))
+      "archive" (ws/ws-generate-response (vec (for [f (.listFiles (File. (str "games/")))] (.getName f))))
       "none" nil
       (if (nil? (get @world-atom game))
-        (when (.exists (java.io.File. (str "games/" game ".game")))
+        (when (.exists (File. (str "games/" game ".game")))
           (ws/ws-generate-response {game (read-string (slurp (str "games/" game ".game")))}))
         (ws/ws-generate-response {game (get @world-atom game)})))))
 
